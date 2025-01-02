@@ -65,6 +65,9 @@ const ServerStatus = ({ username }) => {
   const [connectionError, setConnectionError] = useState(null);
   const queryClient = useQueryClient();
   
+  // Ensure onlineFriends is always an array
+  const safeOnlineFriends = Array.isArray(onlineFriends) ? onlineFriends : [];
+  
   // Fetch videos query
   const { 
     data: videoHistory = [], 
@@ -120,9 +123,13 @@ const ServerStatus = ({ username }) => {
     const socket = io(BACKEND_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
-      timeout: 5000,
+      randomizationFactor: 0.5,
+      timeout: 10000,
+      forceNew: true,
+      secure: true,
+      rejectUnauthorized: false,
       withCredentials: false,
       extraHeaders: {
         'Access-Control-Allow-Origin': '*'
@@ -143,7 +150,9 @@ const ServerStatus = ({ username }) => {
 
     socket.on('friendsUpdate', (friends) => {
       console.log('Friends update received:', friends);
-      setOnlineFriends(friends);
+      // Ensure friends is an array
+      const safeFriends = Array.isArray(friends) ? friends : [];
+      setOnlineFriends(safeFriends);
     });
 
     // Comprehensive error handling
@@ -252,12 +261,12 @@ const ServerStatus = ({ username }) => {
         <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
             Online Friends
           </Typography>
-        {onlineFriends.length === 0 ? (
+        {safeOnlineFriends.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No friends online
           </Typography>
         ) : (
-          onlineFriends.map((friend, index) => (
+          safeOnlineFriends.map((friend, index) => (
             <Typography key={index} variant="body2">
               {friend}
             </Typography>
