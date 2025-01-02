@@ -32,7 +32,7 @@ const deleteVideo = async (videoId) => {
   return data;
 };
 
-const VideoShare = () => {
+const VideoShare = ({ username }) => {
   const [videoUrl, setVideoUrl] = useState('');
   const queryClient = useQueryClient();
 
@@ -81,7 +81,7 @@ const VideoShare = () => {
   };
 
   const handleAddVideo = () => {
-    if (!videoUrl) return;
+    if (!videoUrl || !username) return;
 
     const videoId = extractYouTubeId(videoUrl);
     if (!videoId) {
@@ -92,13 +92,17 @@ const VideoShare = () => {
     addVideoMutation.mutate({
       url: videoUrl,
       title: `YouTube Video ${videoId}`,
-      addedBy: 'GameMaster42'
+      addedBy: username
     });
   };
 
   const handleDeleteVideo = (videoId) => {
     deleteVideoMutation.mutate(videoId);
   };
+
+  if (!username) {
+    return null;
+  }
 
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
@@ -121,7 +125,7 @@ const VideoShare = () => {
           variant="contained" 
           color="primary" 
           onClick={handleAddVideo}
-          disabled={addVideoMutation.isLoading}
+          disabled={addVideoMutation.isLoading || !username}
         >
           Add Video
         </Button>

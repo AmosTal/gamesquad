@@ -1,51 +1,35 @@
-import React from 'react';
-import { ThemeProvider, CssBaseline, createTheme, Box } from '@mui/material';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ReactQueryDevtools } from 'react-query/devtools';
+import { Box } from '@mui/material';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 import Navbar from './components/Navbar';
 import ServerStatus from './components/ServerStatus';
-import DiscordIntegration from './components/DiscordIntegration';
 import VideoShare from './components/VideoShare';
+import DiscordIntegration from './components/DiscordIntegration';
+import UserAuth from './components/UserAuth';
 
+// Create a dark theme
 const darkTheme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#00ff9f',
-    },
-    secondary: {
-      main: '#ff00ff',
+      main: '#00ff9f', // Neon green
     },
     background: {
-      default: '#0a0a0a',
-      paper: '#1a1a1a',
+      default: '#121212',
+      paper: '#1e1e1e',
     },
   },
   typography: {
-    fontFamily: '"Rajdhani", "Roboto", "Helvetica", "Arial", sans-serif',
-    h1: {
-      textTransform: 'uppercase',
-      letterSpacing: '0.1em',
-    },
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 0,
-          textTransform: 'uppercase',
-          fontWeight: 'bold',
-          '&:hover': {
-            boxShadow: '0 0 10px #00ff9f',
-          },
-        },
-      },
-    },
+    fontFamily: 'Roboto, Arial, sans-serif',
   },
 });
 
+// Create a query client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -58,10 +42,19 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  const [username, setUsername] = useState(null);
+
+  const handleUserLogin = (newUsername) => {
+    setUsername(newUsername);
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
+        
+        {!username && <UserAuth onUserLogin={handleUserLogin} />}
+        
         <Router>
           <Box
             sx={{
@@ -69,12 +62,12 @@ function App() {
               background: 'linear-gradient(45deg, #0a0a0a 0%, #1a1a1a 100%)',
             }}
           >
-            <Navbar />
+            <Navbar username={username} />
             <Box component="main" sx={{ p: 3 }}>
               <Routes>
-                <Route path="/" element={<ServerStatus />} />
-                <Route path="/discord" element={<DiscordIntegration />} />
-                <Route path="/videos" element={<VideoShare />} />
+                <Route path="/" element={<ServerStatus username={username} />} />
+                <Route path="/discord" element={<DiscordIntegration username={username} />} />
+                <Route path="/videos" element={<VideoShare username={username} />} />
               </Routes>
             </Box>
           </Box>

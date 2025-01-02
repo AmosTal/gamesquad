@@ -2,15 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { Card, Typography, Box, CircularProgress } from '@mui/material';
 import { io } from 'socket.io-client';
 
-const ServerStatus = () => {
+const ServerStatus = ({ username }) => {
   const [serverStatus, setServerStatus] = useState('offline');
-  const [onlineFriends, setOnlineFriends] = useState([
-    { id: '1', name: 'GameMaster42' }
-  ]);
+  const [onlineFriends, setOnlineFriends] = useState([]);
   
   useEffect(() => {
+    if (!username) return;
+
     const socket = io('http://localhost:5002');
     
+    // Emit join event with username when connected
+    socket.on('connect', () => {
+      socket.emit('join', username);
+    });
+
     socket.on('serverConnected', () => {
       setServerStatus('online');
     });
@@ -20,7 +25,11 @@ const ServerStatus = () => {
     });
 
     return () => socket.disconnect();
-  }, []);
+  }, [username]);
+
+  if (!username) {
+    return null;
+  }
 
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
@@ -49,28 +58,19 @@ const ServerStatus = () => {
           </Typography>
         </Box>
 
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Online Friends ({onlineFriends.length})
+        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+          Online Friends
         </Typography>
-        
         {onlineFriends.length === 0 ? (
-          <Typography color="text.secondary">
+          <Typography variant="body2" color="text.secondary">
             No friends online
           </Typography>
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {onlineFriends.map((friend) => (
-              <Card
-                key={friend.id}
-                sx={{
-                  p: 2,
-                  background: 'rgba(26, 26, 26, 0.5)',
-                }}
-              >
-                <Typography>{friend.name}</Typography>
-              </Card>
-            ))}
-          </Box>
+          onlineFriends.map((friend, index) => (
+            <Typography key={index} variant="body2">
+              {friend}
+            </Typography>
+          ))
         )}
       </Card>
     </Box>
