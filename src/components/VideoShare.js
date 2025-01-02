@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Box, 
   Typography, 
@@ -7,40 +7,72 @@ import {
   Grid, 
   Card, 
   CardMedia, 
-  CardContent 
+  CardContent,
+  IconButton,
+  Tooltip,
+  CircularProgress,
+  Alert
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import axios from 'axios';
-import io from 'socket.io-client';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+
+const fetchVideos = async () => {
+  const { data } = await axios.get('http://localhost:5002/api/videos');
+  return data;
+};
+
+const addVideo = async (videoData) => {
+  const { data } = await axios.post('http://localhost:5002/api/videos', videoData);
+  return data;
+};
+
+const deleteVideo = async (videoId) => {
+  const { data } = await axios.delete(`http://localhost:5002/api/videos/${videoId}`);
+  return data;
+};
 
 const VideoShare = () => {
   const [videoUrl, setVideoUrl] = useState('');
-  const [videoHistory, setVideoHistory] = useState([]);
-  const [socket, setSocket] = useState(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    // Connect to Socket.IO server
-    const newSocket = io('http://localhost:5002');
-    setSocket(newSocket);
+  // Fetch videos query
+  const { 
+    data: videoHistory = [], 
+    isLoading, 
+    error 
+  } = useQuery('videoHistory', fetchVideos, {
+    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchOnWindowFocus: true,
+  });
 
-    // Fetch initial video history
-    const fetchVideoHistory = async () => {
-      try {
-        const response = await axios.get('http://localhost:5002/api/videos');
-        setVideoHistory(response.data);
-      } catch (error) {
-        console.error('Error fetching video history:', error);
-      }
-    };
-    fetchVideoHistory();
+  // Add video mutation
+  const addVideoMutation = useMutation(addVideo, {
+    onSuccess: (newVideo) => {
+      // Optimistically update the cache
+      queryClient.setQueryData('videoHistory', (oldVideos) => [
+        newVideo,
+        ...(oldVideos || [])
+      ]);
+      setVideoUrl('');
+    },
+    onError: (error) => {
+      console.error('Error adding video:', error);
+    }
+  });
 
-    // Listen for new video additions
-    newSocket.on('newVideoAdded', (video) => {
-      setVideoHistory(prevHistory => [video, ...prevHistory]);
-    });
-
-    // Cleanup socket connection
-    return () => newSocket.disconnect();
-  }, []);
+  // Delete video mutation
+  const deleteVideoMutation = useMutation(deleteVideo, {
+    onSuccess: (_, videoId) => {
+      // Optimistically remove the video from cache
+      queryClient.setQueryData('videoHistory', (oldVideos) => 
+        (oldVideos || []).filter(video => video.id !== videoId)
+      );
+    },
+    onError: (error) => {
+      console.error('Error deleting video:', error);
+    }
+  });
 
   const extractYouTubeId = (url) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -48,7 +80,7 @@ const VideoShare = () => {
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
-  const handleAddVideo = async () => {
+  const handleAddVideo = () => {
     if (!videoUrl) return;
 
     const videoId = extractYouTubeId(videoUrl);
@@ -57,17 +89,15 @@ const VideoShare = () => {
       return;
     }
 
-    try {
-      const response = await axios.post('http://localhost:5002/api/videos', {
-        url: videoUrl,
-        title: `YouTube Video ${videoId}`,
-        addedBy: 'GameMaster42'
-      });
+    addVideoMutation.mutate({
+      url: videoUrl,
+      title: `YouTube Video ${videoId}`,
+      addedBy: 'GameMaster42'
+    });
+  };
 
-      setVideoUrl('');
-    } catch (error) {
-      console.error('Error adding video:', error);
-    }
+  const handleDeleteVideo = (videoId) => {
+    deleteVideoMutation.mutate(videoId);
   };
 
   return (
@@ -84,24 +114,40 @@ const VideoShare = () => {
           value={videoUrl}
           onChange={(e) => setVideoUrl(e.target.value)}
           sx={{ mr: 2 }}
+          error={addVideoMutation.isError}
+          helperText={addVideoMutation.isError && 'Failed to add video'}
         />
         <Button 
           variant="contained" 
           color="primary" 
           onClick={handleAddVideo}
+          disabled={addVideoMutation.isLoading}
         >
           Add Video
         </Button>
       </Box>
 
+      {isLoading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+          <CircularProgress />
+        </Box>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          Failed to load videos. Please try again later.
+        </Alert>
+      )}
+
       <Grid container spacing={3}>
-        {videoHistory.map((video, index) => {
+        {videoHistory.map((video) => {
           const videoId = extractYouTubeId(video.url);
           return (
-            <Grid item xs={12} sm={6} md={4} key={index}>
+            <Grid item xs={12} sm={6} md={4} key={video.id}>
               <Card sx={{ 
                 background: 'rgba(26, 26, 26, 0.8)', 
-                backdropFilter: 'blur(10px)' 
+                backdropFilter: 'blur(10px)',
+                position: 'relative'
               }}>
                 <CardMedia
                   component="iframe"
@@ -110,6 +156,24 @@ const VideoShare = () => {
                   title="YouTube Video"
                   allowFullScreen
                 />
+                <Tooltip title="Delete Video">
+                  <IconButton
+                    sx={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      color: 'white',
+                      backgroundColor: 'rgba(255,0,0,0.5)',
+                      '&:hover': {
+                        backgroundColor: 'rgba(255,0,0,0.7)'
+                      }
+                    }}
+                    onClick={() => handleDeleteVideo(video.id)}
+                    disabled={deleteVideoMutation.isLoading}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
                 <CardContent>
                   <Typography variant="body2">
                     Added by: {video.addedBy}
