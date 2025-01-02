@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Card, 
   Typography, 
@@ -65,8 +65,13 @@ const ServerStatus = ({ username }) => {
   const [connectionError, setConnectionError] = useState(null);
   const queryClient = useQueryClient();
   
-  // Ensure onlineFriends is always an array
-  const safeOnlineFriends = Array.isArray(onlineFriends) ? onlineFriends : [];
+  // Memoized safe online friends to prevent unnecessary re-renders
+  const safeOnlineFriends = useMemo(() => {
+    // Ensure onlineFriends is always an array and filter out any non-string values
+    return Array.isArray(onlineFriends) 
+      ? onlineFriends.filter(friend => typeof friend === 'string') 
+      : [];
+  }, [onlineFriends]);
   
   // Fetch videos query
   const { 
@@ -119,8 +124,8 @@ const ServerStatus = ({ username }) => {
     // Extensive logging for socket connection
     console.log('Attempting to connect to socket at:', BACKEND_URL);
 
-    // Use dynamic backend URL for socket connection with extensive options
-    const socket = io(BACKEND_URL, {
+    // Detailed socket configuration
+    const socketOptions = {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,
@@ -134,7 +139,20 @@ const ServerStatus = ({ username }) => {
       extraHeaders: {
         'Access-Control-Allow-Origin': '*'
       }
-    });
+    };
+
+    // Create socket with detailed logging
+    const socket = io(BACKEND_URL, socketOptions);
+    
+    // Comprehensive socket event logging
+    const logSocketEvent = (eventName) => {
+      socket.on(eventName, (...args) => {
+        console.log(`Socket event: ${eventName}`, args);
+      });
+    };
+
+    // Log all standard socket events
+    ['connect', 'connect_error', 'disconnect', 'reconnect', 'reconnect_error'].forEach(logSocketEvent);
     
     // Log socket events
     socket.on('connect', () => {
@@ -150,8 +168,10 @@ const ServerStatus = ({ username }) => {
 
     socket.on('friendsUpdate', (friends) => {
       console.log('Friends update received:', friends);
-      // Ensure friends is an array
-      const safeFriends = Array.isArray(friends) ? friends : [];
+      // Ensure friends is an array and contains only strings
+      const safeFriends = Array.isArray(friends) 
+        ? friends.filter(friend => typeof friend === 'string')
+        : [];
       setOnlineFriends(safeFriends);
     });
 
