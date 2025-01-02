@@ -9,39 +9,57 @@ import {
   Grid, 
   CardMedia,
   IconButton,
-  Tooltip
+  Tooltip,
+  Alert
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { io } from 'socket.io-client';
 import axios from 'axios';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 
-// Dynamic backend URL
+// Dynamic backend URL with fallback and logging
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
+console.log('Backend URL:', BACKEND_URL);
 
 // Deep link format for Discord voice channel
-// Replace SERVER_ID and CHANNEL_ID with your actual Discord server and voice channel IDs
 const DISCORD_VOICE_CHANNEL_LINK = 'discord://discord.com/channels/1091057132771750030';
 
 const fetchVideos = async () => {
-  const { data } = await axios.get(`${BACKEND_URL}/api/videos`);
-  return data;
+  try {
+    console.log('Fetching videos from:', `${BACKEND_URL}/api/videos`);
+    const { data } = await axios.get(`${BACKEND_URL}/api/videos`);
+    return data;
+  } catch (error) {
+    console.error('Error fetching videos:', error);
+    throw error;
+  }
 };
 
 const addVideo = async (videoData) => {
-  const { data } = await axios.post(`${BACKEND_URL}/api/videos`, videoData);
-  return data;
+  try {
+    const { data } = await axios.post(`${BACKEND_URL}/api/videos`, videoData);
+    return data;
+  } catch (error) {
+    console.error('Error adding video:', error);
+    throw error;
+  }
 };
 
 const deleteVideo = async (videoId) => {
-  const { data } = await axios.delete(`${BACKEND_URL}/api/videos/${videoId}`);
-  return data;
+  try {
+    const { data } = await axios.delete(`${BACKEND_URL}/api/videos/${videoId}`);
+    return data;
+  } catch (error) {
+    console.error('Error deleting video:', error);
+    throw error;
+  }
 };
 
 const ServerStatus = ({ username }) => {
   const [serverStatus, setServerStatus] = useState('offline');
   const [onlineFriends, setOnlineFriends] = useState([]);
   const [videoUrl, setVideoUrl] = useState('');
+  const [connectionError, setConnectionError] = useState(null);
   const queryClient = useQueryClient();
   
   // Fetch videos query
@@ -52,7 +70,11 @@ const ServerStatus = ({ username }) => {
   } = useQuery('videoHistory', fetchVideos, {
     refetchInterval: 30000, // Refetch every 30 seconds
     refetchOnWindowFocus: true,
-    enabled: !!username
+    enabled: !!username,
+    onError: (error) => {
+      console.error('Video history fetch error:', error);
+      setConnectionError(error.message || 'Failed to fetch videos');
+    }
   });
 
   // Add video mutation
@@ -67,6 +89,7 @@ const ServerStatus = ({ username }) => {
     },
     onError: (error) => {
       console.error('Error adding video:', error);
+      setConnectionError(error.message || 'Failed to add video');
     }
   });
 
@@ -80,39 +103,81 @@ const ServerStatus = ({ username }) => {
     },
     onError: (error) => {
       console.error('Error deleting video:', error);
+      setConnectionError(error.message || 'Failed to delete video');
     }
   });
 
   useEffect(() => {
     if (!username) return;
 
-    // Use dynamic backend URL for socket connection
+    // Extensive logging for socket connection
+    console.log('Attempting to connect to socket at:', BACKEND_URL);
+
+    // Use dynamic backend URL for socket connection with extensive options
     const socket = io(BACKEND_URL, {
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 5000
     });
     
-    // Emit join event with username when connected
+    // Log socket events
     socket.on('connect', () => {
+      console.log('Socket connected successfully');
       socket.emit('join', username);
     });
 
     socket.on('serverConnected', () => {
-      console.log('Server connected');
+      console.log('Server explicitly confirmed connection');
       setServerStatus('online');
+      setConnectionError(null);
     });
 
     socket.on('friendsUpdate', (friends) => {
+      console.log('Friends update received:', friends);
       setOnlineFriends(friends);
     });
 
-    // Handle connection errors
+    // Comprehensive error handling
     socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
       setServerStatus('offline');
+      setConnectionError(`Connection failed: ${error.message}`);
     });
 
-    return () => socket.disconnect();
+    socket.on('disconnect', (reason) => {
+      console.log('Socket disconnected:', reason);
+      setServerStatus('offline');
+      setConnectionError(`Disconnected: ${reason}`);
+    });
+
+    socket.on('reconnect', (attemptNumber) => {
+      console.log('Socket reconnected after', attemptNumber, 'attempts');
+      setServerStatus('online');
+      setConnectionError(null);
+    });
+
+    socket.on('reconnect_error', (error) => {
+      console.error('Socket reconnection error:', error);
+      setServerStatus('offline');
+      setConnectionError(`Reconnection failed: ${error.message}`);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [username]);
+
+  // Render connection error if exists
+  const renderConnectionError = () => {
+    if (!connectionError) return null;
+    return (
+      <Alert severity="error" sx={{ mt: 2 }}>
+        {connectionError}
+      </Alert>
+    );
+  };
 
   const extractYouTubeId = (url) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -173,6 +238,7 @@ const ServerStatus = ({ username }) => {
           />
           <Typography>
             Status: {serverStatus.toUpperCase()}
+            {serverStatus === 'offline' && ' (Trying to reconnect...)'}
           </Typography>
         </Box>
 
@@ -277,6 +343,7 @@ const ServerStatus = ({ username }) => {
             })}
           </Grid>
         </Box>
+        {renderConnectionError()}
       </Card>
     </Box>
   );

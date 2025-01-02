@@ -68,17 +68,19 @@ initializeDatabase();
 const connectedUsers = new Map();
 
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  console.log('New socket connection:', socket.id);
   
   // Handle user join
   socket.on('join', (username) => {
-    console.log(`${username} joined`);
+    console.log(`${username} joined with socket ID: ${socket.id}`);
+    
+    // Store user connection
     connectedUsers.set(socket.id, username);
     
-    // Emit server connected event
+    // Explicitly send server connected event
     socket.emit('serverConnected');
     
-    // Broadcast friends update
+    // Broadcast updated friends list
     io.emit('friendsUpdate', Array.from(connectedUsers.values()));
   });
 
