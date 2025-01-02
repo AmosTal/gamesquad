@@ -17,11 +17,13 @@ import { io } from 'socket.io-client';
 import axios from 'axios';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 
-// Dynamic backend URL with explicit deployment URL
+// Dynamic backend URL configuration
 const BACKEND_URL = 
-  window.location.hostname === 'localhost' 
+  process.env.REACT_APP_BACKEND_URL || 
+  (window.location.hostname === 'localhost' 
     ? 'http://localhost:8080' 
-    : 'https://web-production-0f014.up.railway.app';
+    : 'https://gamesquad-backend.up.railway.app');
+
 console.log('Backend URL:', BACKEND_URL);
 
 // Deep link format for Discord voice channel

@@ -12,12 +12,17 @@ const {
 
 const app = express();
 
+// Dynamic port configuration
+const PORT = process.env.PORT || 8080;
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://gamesquad-frontend.up.railway.app';
+
 // Comprehensive CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       'http://localhost:3000', 
       'https://web-production-0f014.up.railway.app',
+      FRONTEND_URL,
       /\.railway\.app$/,
       'http://localhost:8080'
     ];
@@ -45,7 +50,7 @@ app.use(express.json());
 // Serve static files from React build
 app.use(express.static(path.join(__dirname, 'build')));
 
-// API routes
+// API routes with comprehensive error handling
 app.post('/api/videos', async (req, res) => {
   try {
     const { url, title, addedBy } = req.body;
@@ -135,10 +140,9 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 8080;
-
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Frontend URL: ${FRONTEND_URL}`);
 }).on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
     console.log('Port is already in use');
