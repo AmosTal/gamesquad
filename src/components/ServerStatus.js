@@ -126,7 +126,7 @@ const ServerStatus = ({ username }) => {
     // Extensive logging for socket connection
     console.log('Attempting to connect to socket at:', BACKEND_URL);
 
-    // Detailed socket configuration
+    // Socket connection configuration
     const socketOptions = {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -139,6 +139,7 @@ const ServerStatus = ({ username }) => {
       rejectUnauthorized: false,
       withCredentials: false,
       extraHeaders: {
+        'Origin': window.location.origin,
         'Access-Control-Allow-Origin': '*'
       }
     };

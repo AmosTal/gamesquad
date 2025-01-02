@@ -14,7 +14,8 @@ const app = express();
 
 // Dynamic port configuration
 const PORT = process.env.PORT || 8080;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://gamesquad-frontend.up.railway.app';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://web-production-0f014.up.railway.app';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://gamesquad-backend.up.railway.app';
 
 // Comprehensive CORS configuration
 const corsOptions = {
@@ -23,9 +24,12 @@ const corsOptions = {
       'http://localhost:3000', 
       'https://web-production-0f014.up.railway.app',
       FRONTEND_URL,
+      'https://gamesquad-frontend.up.railway.app',
       /\.railway\.app$/,
       'http://localhost:8080'
     ];
+    
+    console.log('Incoming request origin:', origin);
     
     if (!origin || allowedOrigins.some(allowed => 
       typeof allowed === 'string' 
@@ -34,16 +38,26 @@ const corsOptions = {
     )) {
       callback(null, true);
     } else {
+      console.warn('CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
+// Apply CORS middleware
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // Enable preflight requests for all routes
+
+// Logging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} from ${req.get('origin')}`);
+  next();
+});
 
 app.use(express.json());
 
@@ -98,7 +112,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: corsOptions,
   pingTimeout: 60000,
-  pingInterval: 25000
+  pingInterval: 25000,
+  transports: ['websocket', 'polling']
 });
 
 // Initialize database on server start
@@ -143,6 +158,7 @@ io.on('connection', (socket) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Frontend URL: ${FRONTEND_URL}`);
+  console.log(`Backend URL: ${BACKEND_URL}`);
 }).on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
     console.log('Port is already in use');
