@@ -2,7 +2,12 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { initializeDatabase, addVideoToHistory, getVideoHistory } = require('./src/db/database');
+const { 
+  initializeDatabase, 
+  addVideoToHistory, 
+  getVideoHistory,
+  deleteVideoById 
+} = require('./src/db/database');
 
 const app = express();
 app.use(cors());
@@ -12,7 +17,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:3000",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST", "DELETE"]
   }
 });
 
@@ -22,7 +27,7 @@ initializeDatabase();
 // Store connected users
 const connectedUsers = new Map();
 
-// Video History Endpoint
+// Video History Endpoints
 app.post('/api/videos', async (req, res) => {
   const { url, title, addedBy } = req.body;
   const video = await addVideoToHistory({ url, title, addedBy });
@@ -41,6 +46,19 @@ app.get('/api/videos', async (req, res) => {
   res.json(videos);
 });
 
+app.delete('/api/videos/:id', async (req, res) => {
+  const { id } = req.params;
+  const success = await deleteVideoById(id);
+  
+  if (success) {
+    // Broadcast video deletion to all clients
+    io.emit('videoDeleted', id);
+    res.status(200).json({ message: 'Video deleted successfully' });
+  } else {
+    res.status(404).json({ error: 'Video not found' });
+  }
+});
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
   socket.emit('serverConnected'); // Use a custom event instead of 'connect'
@@ -57,8 +75,9 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 5002;
-server.listen(PORT, '0.0.0.0', () => {
+const PORT = process.env.PORT || 3001;
+
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 }).on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
