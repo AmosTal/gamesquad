@@ -10,7 +10,6 @@ import Navbar from './components/Navbar';
 import ServerStatus from './components/ServerStatus';
 import DiscordIntegration from './components/DiscordIntegration';
 import UserAuth from './components/UserAuth';
-import VideoShare from './components/VideoShare';
 
 // Create a dark theme
 const darkTheme = createTheme({
@@ -19,13 +18,43 @@ const darkTheme = createTheme({
     primary: {
       main: '#00ff9f', // Neon green
     },
+    secondary: {
+      main: '#ff00ff',
+    },
     background: {
       default: '#121212',
       paper: '#1e1e1e',
     },
   },
   typography: {
-    fontFamily: 'Roboto, Arial, sans-serif',
+    fontFamily: '"Rajdhani", "Roboto", "Helvetica", "Arial", sans-serif',
+    h1: {
+      textTransform: 'uppercase',
+      letterSpacing: '0.1em',
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 0,
+          textTransform: 'uppercase',
+          fontWeight: 'bold',
+          '&:hover': {
+            boxShadow: '0 0 10px #00ff9f',
+          },
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          '&:hover': {
+            textShadow: '0 0 10px #00ff9f',
+          },
+        },
+      },
+    },
   },
 });
 
