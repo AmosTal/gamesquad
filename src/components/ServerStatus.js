@@ -17,8 +17,11 @@ import { io } from 'socket.io-client';
 import axios from 'axios';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 
-// Dynamic backend URL with fallback and logging
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
+// Dynamic backend URL with explicit deployment URL
+const BACKEND_URL = 
+  window.location.hostname === 'localhost' 
+    ? 'http://localhost:8080' 
+    : 'https://web-production-0f014.up.railway.app';
 console.log('Backend URL:', BACKEND_URL);
 
 // Deep link format for Discord voice channel
@@ -119,7 +122,11 @@ const ServerStatus = ({ username }) => {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      timeout: 5000
+      timeout: 5000,
+      withCredentials: false,
+      extraHeaders: {
+        'Access-Control-Allow-Origin': '*'
+      }
     });
     
     // Log socket events

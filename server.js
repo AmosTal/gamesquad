@@ -13,11 +13,31 @@ const {
 const app = express();
 
 // Comprehensive CORS configuration
-app.use(cors({
-  origin: '*', // Allow all origins in production
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000', 
+      'https://web-production-0f014.up.railway.app',
+      /\.railway\.app$/
+    ];
+    
+    if (!origin || allowedOrigins.some(allowed => 
+      typeof allowed === 'string' 
+        ? allowed === origin 
+        : allowed.test(origin)
+    )) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Enable preflight requests for all routes
 
 app.use(express.json());
 
@@ -55,10 +75,7 @@ app.get('*', (req, res) => {
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: '*', // Allow all origins
-    methods: ['GET', 'POST', 'DELETE']
-  }
+  cors: corsOptions
 });
 
 // Initialize database on server start
