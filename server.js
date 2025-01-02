@@ -2,9 +2,11 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const { initializeDatabase, addVideoToHistory, getVideoHistory } = require('./src/db/database');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -14,8 +16,30 @@ const io = new Server(server, {
   }
 });
 
+// Initialize database on server start
+initializeDatabase();
+
 // Store connected users
 const connectedUsers = new Map();
+
+// Video History Endpoint
+app.post('/api/videos', async (req, res) => {
+  const { url, title, addedBy } = req.body;
+  const video = await addVideoToHistory({ url, title, addedBy });
+  
+  if (video) {
+    // Broadcast new video to all clients
+    io.emit('newVideoAdded', video);
+    res.status(201).json(video);
+  } else {
+    res.status(500).json({ error: 'Failed to add video' });
+  }
+});
+
+app.get('/api/videos', async (req, res) => {
+  const videos = await getVideoHistory();
+  res.json(videos);
+});
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
