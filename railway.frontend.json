@@ -5,7 +5,7 @@
     "dockerfilePath": "./Dockerfile"
   },
   "deploy": {
-    "startCommand": "npm run serve",
+    "startCommand": "npm run build && npm run serve",
     "healthcheckPath": "/",
     "healthcheckTimeout": 100,
     "restartPolicyType": "on_failure",
