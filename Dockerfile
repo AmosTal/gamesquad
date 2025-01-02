@@ -16,8 +16,11 @@ COPY . .
 # Build the React app
 RUN npm run build
 
+# Install serve to run the app
+RUN npm install -g serve
+
 # Expose the port the app runs on
-EXPOSE 3001
+EXPOSE 8080
 
 # Define the command to run the app
-CMD ["npm", "run", "start:prod"]
+CMD ["serve", "-s", "build", "-l", "8080"]

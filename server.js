@@ -12,10 +12,12 @@ const {
 
 const app = express();
 
-// Serve static files from the React build
-app.use(express.static(path.join(__dirname, 'public')));
+// CORS configuration
+app.use(cors({
+  origin: '*', // Be more specific in production
+  methods: ['GET', 'POST', 'DELETE']
+}));
 
-app.use(cors());
 app.use(express.json());
 
 // API routes
@@ -24,7 +26,6 @@ app.post('/api/videos', async (req, res) => {
   const video = await addVideoToHistory({ url, title, addedBy });
   
   if (video) {
-    // Broadcast new video to all clients
     io.emit('newVideoAdded', video);
     res.status(201).json(video);
   } else {
@@ -42,6 +43,9 @@ app.delete('/api/videos/:id', async (req, res) => {
   const success = await deleteVideoById(id);
   res.json({ success });
 });
+
+// Serve static files from the React build
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Serve React app for any unknown routes
 app.get('*', (req, res) => {
@@ -78,7 +82,7 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
