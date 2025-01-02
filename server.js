@@ -229,14 +229,41 @@ app.get('*', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Origin'],
+    origin: '*',  // Allow all origins for production flexibility
+    methods: ['GET', 'POST', 'OPTIONS', 'HEAD'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'X-Requested-With'
+    ],
     credentials: true
   },
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  transports: ['websocket', 'polling']
+  pingTimeout: 60000,     // 1 minute
+  pingInterval: 25000,    // 25 seconds
+  transports: ['websocket', 'polling'],
+  path: '/socket.io/',    // Explicit socket.io path
+  serveClient: false,     // Disable client-side socket.io script serving
+  allowEIO3: false        // Disable older socket.io protocol versions
+});
+
+// Enhanced socket connection logging and validation
+io.use((socket, next) => {
+  const handshakeData = socket.handshake;
+  console.log('Socket Connection Attempt:', {
+    origin: handshakeData.headers.origin || 'Unknown',
+    time: new Date().toISOString(),
+    address: socket.handshake.address,
+    query: socket.handshake.query
+  });
+
+  // Optional: Add basic authentication if needed
+  const username = socket.handshake.query.username;
+  if (username) {
+    // You can add more sophisticated authentication here
+    next();
+  } else {
+    next(new Error('Authentication error'));
+  }
 });
 
 // Initialize database on server start

@@ -17,16 +17,13 @@ import { io } from 'socket.io-client';
 import axios from 'axios';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 
-// Dynamic backend URL configuration
+// Dynamic backend URL configuration for production
 const BACKEND_URL = 
   process.env.REACT_APP_BACKEND_URL || 
-  (window.location.hostname === 'localhost' 
-    ? 'http://localhost:8080' 
-    : 'https://gamesquad-backend.up.railway.app');
+  'https://gamesquad-backend.up.railway.app';
 
 console.log('Backend URL Configuration:', {
   envVar: process.env.REACT_APP_BACKEND_URL,
-  hostname: window.location.hostname,
   resolvedURL: BACKEND_URL
 });
 
@@ -191,98 +188,124 @@ const ServerStatus = ({ username }) => {
   useEffect(() => {
     if (!username) return;
 
-    // Extensive logging for socket connection
-    console.log('Attempting to connect to socket at:', BACKEND_URL);
+    const createSocketConnection = (username) => {
+      // Enhanced socket options for production
+      const socketOptions = {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 25,
+        reconnectionDelay: 5000,
+        randomizationFactor: 0.5,
+        timeout: 30000,
+        forceNew: true,
+        secure: true,
+        rejectUnauthorized: false,
+        withCredentials: false,
+        path: '/socket.io/',
+        query: { 
+          username: username  // Pass username in connection query
+        }
+      };
 
-    // Socket connection configuration with extensive error handling
-    const socketOptions = {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 15,
-      reconnectionDelay: 2000,
-      randomizationFactor: 0.5,
-      timeout: 15000,
-      forceNew: true,
-      secure: true,
-      rejectUnauthorized: false,
-      withCredentials: false
-    };
-
-    // Create socket with detailed logging
-    const socket = io(BACKEND_URL, socketOptions);
-    
-    // Comprehensive socket event logging
-    const logSocketEvent = (eventName) => {
-      socket.on(eventName, (...args) => {
-        console.log(`Socket event: ${eventName}`, args);
+      // Create socket with comprehensive error handling
+      const socket = io(BACKEND_URL, {
+        ...socketOptions,
+        extraHeaders: {
+          'X-Connection-Type': 'GameSquad-Socket'
+        }
       });
-    };
 
-    // Log all standard socket events
-    ['connect', 'connect_error', 'disconnect', 'reconnect', 'reconnect_error'].forEach(logSocketEvent);
-    
-    // Enhanced error logging for socket connection
-    const logSocketError = (error) => {
-      console.error('Detailed Socket Connection Error:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
+      // Detailed socket event logging
+      const logSocketEvent = (eventName) => {
+        socket.on(eventName, (...args) => {
+          console.log(`Socket Event [${eventName}]:`, {
+            timestamp: new Date().toISOString(),
+            args: args
+          });
+        });
+      };
+
+      // Log critical socket events
+      [
+        'connect', 
+        'connect_error', 
+        'disconnect', 
+        'reconnect', 
+        'reconnect_attempt',
+        'reconnect_error',
+        'reconnect_failed'
+      ].forEach(logSocketEvent);
+
+      // Enhanced connection handling
+      socket.on('connect', async () => {
+        console.log('Socket Connected Successfully', {
+          id: socket.id,
+          timestamp: new Date().toISOString()
+        });
+
+        try {
+          // Perform health check before joining
+          const healthCheck = await checkServerHealth();
+          
+          if (healthCheck.status) {
+            console.log('Server Health Check Passed - Joining');
+            socket.emit('join', username);
+          } else {
+            console.warn('Server Health Check Failed', healthCheck);
+          }
+        } catch (error) {
+          console.error('Health Check Error:', error);
+        }
       });
+
+      // Detailed error handling
+      socket.on('connect_error', (error) => {
+        console.error('Detailed Socket Connection Error:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      socket.on('serverConnected', () => {
+        console.log('Server explicitly confirmed connection');
+        setServerStatus('online');
+        setConnectionError(null);
+      });
+
+      socket.on('friendsUpdate', (friends) => {
+        console.log('Friends update received:', friends);
+        // Ensure friends is an array and contains only strings
+        const safeFriends = Array.isArray(friends) 
+          ? friends.filter(friend => typeof friend === 'string')
+          : [];
+        setOnlineFriends(safeFriends);
+      });
+
+      // Comprehensive error handling
+      socket.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+        setServerStatus('offline');
+        setConnectionError(`Disconnected: ${reason}`);
+      });
+
+      socket.on('reconnect', (attemptNumber) => {
+        console.log('Socket reconnected after', attemptNumber, 'attempts');
+        setServerStatus('online');
+        setConnectionError(null);
+      });
+
+      socket.on('reconnect_error', (error) => {
+        console.error('Socket reconnection error:', error);
+        setServerStatus('offline');
+        setConnectionError(`Reconnection failed: ${error.message}`);
+      });
+
+      return socket;
     };
 
-    // Log socket events
-    socket.on('connect', async () => {
-      console.log('Socket connected successfully');
-      const isHealthy = await checkServerHealth();
-      if (isHealthy.status) {
-        socket.emit('join', username);
-      } else {
-        console.error('Server is not healthy');
-        setConnectionError('Server is not healthy');
-      }
-    });
-
-    socket.on('serverConnected', () => {
-      console.log('Server explicitly confirmed connection');
-      setServerStatus('online');
-      setConnectionError(null);
-    });
-
-    socket.on('friendsUpdate', (friends) => {
-      console.log('Friends update received:', friends);
-      // Ensure friends is an array and contains only strings
-      const safeFriends = Array.isArray(friends) 
-        ? friends.filter(friend => typeof friend === 'string')
-        : [];
-      setOnlineFriends(safeFriends);
-    });
-
-    // Comprehensive error handling
-    socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-      setServerStatus('offline');
-      setConnectionError(`Connection failed: ${error.message}`);
-      logSocketError(error);
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason);
-      setServerStatus('offline');
-      setConnectionError(`Disconnected: ${reason}`);
-    });
-
-    socket.on('reconnect', (attemptNumber) => {
-      console.log('Socket reconnected after', attemptNumber, 'attempts');
-      setServerStatus('online');
-      setConnectionError(null);
-    });
-
-    socket.on('reconnect_error', (error) => {
-      console.error('Socket reconnection error:', error);
-      setServerStatus('offline');
-      setConnectionError(`Reconnection failed: ${error.message}`);
-      logSocketError(error);
-    });
+    const socket = createSocketConnection(username);
 
     return () => {
       socket.disconnect();
