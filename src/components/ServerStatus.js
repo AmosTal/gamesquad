@@ -16,6 +16,10 @@ import { io } from 'socket.io-client';
 import axios from 'axios';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 
+// Deep link format for Discord voice channel
+// Replace SERVER_ID and CHANNEL_ID with your actual Discord server and voice channel IDs
+const DISCORD_VOICE_CHANNEL_LINK = 'discord://discord.com/channels/1091057132771750030';
+
 const fetchVideos = async () => {
   const { data } = await axios.get('http://localhost:5002/api/videos');
   return data;
@@ -123,6 +127,11 @@ const ServerStatus = ({ username }) => {
     deleteVideoMutation.mutate(videoId);
   };
 
+  const handleJoinVoiceChannel = () => {
+    // Open Discord and navigate directly to the voice channel
+    window.open(DISCORD_VOICE_CHANNEL_LINK, '_self');
+  };
+
   if (!username) {
     return null;
   }
@@ -154,9 +163,24 @@ const ServerStatus = ({ username }) => {
           </Typography>
         </Box>
 
-        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
-          Online Friends
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h6" sx={{ color: 'primary.main' }}>
+            Online Friends
+          </Typography>
+          <Tooltip 
+            title="Click to open Discord, then manually join the 'Gaming Lounge' voice channel" 
+            placement="left"
+          >
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handleJoinVoiceChannel}
+            >
+              Join Voice Chat
+            </Button>
+          </Tooltip>
+        </Box>
+
         {onlineFriends.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No friends online
