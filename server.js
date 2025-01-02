@@ -29,7 +29,7 @@ const logRequest = (req, res, next) => {
 
 // Dynamic port configuration
 const PORT = process.env.PORT || 8080;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://web-production-0f014.up.railway.app';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://web-production-b2c6.up.railway.app';
 const BACKEND_URL = process.env.BACKEND_URL || 'https://gamesquad-backend.up.railway.app';
 
 console.log('Server Configuration:');
@@ -42,7 +42,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       'http://localhost:3000', 
-      'https://web-production-0f014.up.railway.app',
+      'https://web-production-b2c6.up.railway.app',
       FRONTEND_URL,
       'https://gamesquad-frontend.up.railway.app',
       /\.railway\.app$/,

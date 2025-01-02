@@ -16,7 +16,7 @@
       "env": {
         "NODE_ENV": "production",
         "PORT": "8080",
-        "FRONTEND_URL": "https://gamesquad-frontend.up.railway.app",
+        "FRONTEND_URL": "https://web-production-b2c6.up.railway.app",
         "BACKEND_URL": "https://gamesquad-backend.up.railway.app"
       }
     }
