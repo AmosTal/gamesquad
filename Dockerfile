@@ -22,5 +22,8 @@ RUN npm install -g serve
 # Expose the port the app runs on
 EXPOSE 8080
 
+# Pass environment variables
+ENV REACT_APP_BACKEND_URL=https://your-railway-app-url.railway.app
+
 # Define the command to run the app
 CMD ["serve", "-s", "build", "-l", "8080"]

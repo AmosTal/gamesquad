@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Typography, Box, TextField, Button } from '@mui/material';
+import axios from 'axios';
+
+// Dynamic backend URL
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
 
 const DiscordIntegration = () => {
   const [username, setUsername] = useState('');
 
   const handleSendInvite = async () => {
     try {
-      // TODO: Implement Discord webhook integration
+      // Update any axios calls to use BACKEND_URL
+      const response = await axios.post(`${BACKEND_URL}/api/send-invite`, { username });
       console.log('Sending invite to:', username);
     } catch (error) {
       console.error('Error sending invite:', error);

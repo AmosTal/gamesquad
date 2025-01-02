@@ -16,22 +16,25 @@ import { io } from 'socket.io-client';
 import axios from 'axios';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 
+// Dynamic backend URL
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
+
 // Deep link format for Discord voice channel
 // Replace SERVER_ID and CHANNEL_ID with your actual Discord server and voice channel IDs
 const DISCORD_VOICE_CHANNEL_LINK = 'discord://discord.com/channels/1091057132771750030';
 
 const fetchVideos = async () => {
-  const { data } = await axios.get('http://localhost:5002/api/videos');
+  const { data } = await axios.get(`${BACKEND_URL}/api/videos`);
   return data;
 };
 
 const addVideo = async (videoData) => {
-  const { data } = await axios.post('http://localhost:5002/api/videos', videoData);
+  const { data } = await axios.post(`${BACKEND_URL}/api/videos`, videoData);
   return data;
 };
 
 const deleteVideo = async (videoId) => {
-  const { data } = await axios.delete(`http://localhost:5002/api/videos/${videoId}`);
+  const { data } = await axios.delete(`${BACKEND_URL}/api/videos/${videoId}`);
   return data;
 };
 
@@ -83,7 +86,10 @@ const ServerStatus = ({ username }) => {
   useEffect(() => {
     if (!username) return;
 
-    const socket = io('http://localhost:5002');
+    // Use dynamic backend URL for socket connection
+    const socket = io(BACKEND_URL, {
+      transports: ['websocket', 'polling']
+    });
     
     // Emit join event with username when connected
     socket.on('connect', () => {
@@ -91,11 +97,18 @@ const ServerStatus = ({ username }) => {
     });
 
     socket.on('serverConnected', () => {
+      console.log('Server connected');
       setServerStatus('online');
     });
 
     socket.on('friendsUpdate', (friends) => {
       setOnlineFriends(friends);
+    });
+
+    // Handle connection errors
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      setServerStatus('offline');
     });
 
     return () => socket.disconnect();
@@ -163,24 +176,9 @@ const ServerStatus = ({ username }) => {
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h6" sx={{ color: 'primary.main' }}>
+        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
             Online Friends
           </Typography>
-          <Tooltip 
-            title="Click to open Discord, then manually join the 'Gaming Lounge' voice channel" 
-            placement="left"
-          >
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={handleJoinVoiceChannel}
-            >
-              Join Voice Chat
-            </Button>
-          </Tooltip>
-        </Box>
-
         {onlineFriends.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No friends online

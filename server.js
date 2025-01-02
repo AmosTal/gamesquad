@@ -12,10 +12,11 @@ const {
 
 const app = express();
 
-// CORS configuration
+// Comprehensive CORS configuration
 app.use(cors({
-  origin: '*', // Be more specific in production
-  methods: ['GET', 'POST', 'DELETE']
+  origin: '*', // Allow all origins in production
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
@@ -55,8 +56,8 @@ app.get('*', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST", "DELETE"]
+    origin: '*', // Allow all origins
+    methods: ['GET', 'POST', 'DELETE']
   }
 });
 
@@ -68,17 +69,26 @@ const connectedUsers = new Map();
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
-  socket.emit('serverConnected'); // Use a custom event instead of 'connect'
-
+  
+  // Handle user join
   socket.on('join', (username) => {
+    console.log(`${username} joined`);
     connectedUsers.set(socket.id, username);
+    
+    // Emit server connected event
+    socket.emit('serverConnected');
+    
+    // Broadcast friends update
     io.emit('friendsUpdate', Array.from(connectedUsers.values()));
   });
 
   socket.on('disconnect', () => {
-    connectedUsers.delete(socket.id);
-    io.emit('friendsUpdate', Array.from(connectedUsers.values()));
-    console.log('User disconnected:', socket.id);
+    const username = connectedUsers.get(socket.id);
+    if (username) {
+      console.log(`${username} disconnected`);
+      connectedUsers.delete(socket.id);
+      io.emit('friendsUpdate', Array.from(connectedUsers.values()));
+    }
   });
 });
 
