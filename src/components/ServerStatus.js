@@ -31,7 +31,8 @@ const axiosInstance = axios.create({
   baseURL: BACKEND_URL,
   timeout: 15000,
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*'
   },
   withCredentials: false
 });
@@ -152,7 +153,10 @@ const ServerStatus = ({ username }) => {
       forceNew: true,
       secure: true,
       rejectUnauthorized: false,
-      withCredentials: false
+      withCredentials: false,
+      extraHeaders: {
+        'Access-Control-Allow-Origin': '*'
+      }
     };
 
     // Create socket with detailed logging
