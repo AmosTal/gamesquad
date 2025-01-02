@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Typography, Box, CircularProgress, Button } from '@mui/material';
+import { Card, Typography, Box, CircularProgress } from '@mui/material';
 import { io } from 'socket.io-client';
 
 const ServerStatus = () => {
   const [serverStatus, setServerStatus] = useState('offline');
-  const [onlineFriends, setOnlineFriends] = useState([]);
+  const [onlineFriends, setOnlineFriends] = useState([
+    { id: '1', name: 'GameMaster42' }
+  ]);
   
   useEffect(() => {
     const socket = io('http://localhost:5002');
@@ -48,7 +50,7 @@ const ServerStatus = () => {
         </Box>
 
         <Typography variant="h6" sx={{ mb: 2 }}>
-          Online Friends
+          Online Friends ({onlineFriends.length})
         </Typography>
         
         {onlineFriends.length === 0 ? (
@@ -70,16 +72,6 @@ const ServerStatus = () => {
             ))}
           </Box>
         )}
-
-        <Button
-          variant="contained"
-          color="primary"
-          fullWidth
-          sx={{ mt: 3 }}
-          onClick={() => {/* TODO: Implement join server */}}
-        >
-          Join Server
-        </Button>
       </Card>
     </Box>
   );
