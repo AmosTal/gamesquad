@@ -24,7 +24,11 @@ const BACKEND_URL =
     ? 'http://localhost:8080' 
     : 'https://gamesquad-backend.up.railway.app');
 
-console.log('Backend URL:', BACKEND_URL);
+console.log('Backend URL Configuration:', {
+  envVar: process.env.REACT_APP_BACKEND_URL,
+  hostname: window.location.hostname,
+  resolvedURL: BACKEND_URL
+});
 
 // Axios configuration for API calls
 const axiosInstance = axios.create({
@@ -33,34 +37,72 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  withCredentials: false
+  withCredentials: false,
+  validateStatus: function (status) {
+    // Reject only if the status code is less than 200 or greater than or equal to 300
+    return status >= 200 && status < 300;
+  }
 });
+
+// Comprehensive error logging function
+const logAxiosError = (error) => {
+  if (error.response) {
+    // The request was made and the server responded with a status code
+    // that falls out of the range of 2xx
+    console.error('Axios Error Response:', {
+      data: error.response.data,
+      status: error.response.status,
+      headers: error.response.headers
+    });
+  } else if (error.request) {
+    // The request was made but no response was received
+    console.error('Axios No Response Error:', error.request);
+  } else {
+    // Something happened in setting up the request that triggered an Error
+    console.error('Axios Error:', error.message);
+  }
+};
 
 // Health check function
 const checkServerHealth = async () => {
   try {
+    console.log('Performing server health check...');
     const response = await axiosInstance.get('/health');
-    console.log('Server health check:', response.data);
-    return response.data.status === 'healthy';
+    console.log('Health Check Response:', response.data);
+    
+    return {
+      status: response.data.status === 'healthy',
+      details: response.data
+    };
   } catch (error) {
-    console.error('Health check failed:', error);
-    return false;
+    logAxiosError(error);
+    return {
+      status: false,
+      error: error.message
+    };
   }
 };
 
 // Modify video fetching function with enhanced error handling
 const fetchVideos = async () => {
   try {
-    console.log('Attempting to fetch videos from:', `${BACKEND_URL}/api/videos`);
+    console.log(`Attempting to fetch videos from: ${BACKEND_URL}/api/videos`);
     const response = await axiosInstance.get('/api/videos');
+    
+    console.log('Video Fetch Response:', {
+      status: response.status,
+      count: response.data ? response.data.length : 0
+    });
+    
     return response.data;
   } catch (error) {
-    console.error('Error fetching videos:', {
-      message: error.message,
-      response: error.response ? error.response.data : 'No response',
+    logAxiosError(error);
+    
+    throw {
+      message: 'Failed to fetch videos',
+      details: error.response ? error.response.data : error.message,
       status: error.response ? error.response.status : 'Unknown'
-    });
-    throw error;
+    };
   }
 };
 
@@ -69,7 +111,7 @@ const addVideo = async (videoData) => {
     const { data } = await axiosInstance.post('/api/videos', videoData);
     return data;
   } catch (error) {
-    console.error('Error adding video:', error.response ? error.response.data : error.message);
+    logAxiosError(error);
     throw error;
   }
 };
@@ -79,7 +121,7 @@ const deleteVideo = async (videoId) => {
     const { data } = await axiosInstance.delete(`/api/videos/${videoId}`);
     return data;
   } catch (error) {
-    console.error('Error deleting video:', error.response ? error.response.data : error.message);
+    logAxiosError(error);
     throw error;
   }
 };
@@ -192,7 +234,7 @@ const ServerStatus = ({ username }) => {
     socket.on('connect', async () => {
       console.log('Socket connected successfully');
       const isHealthy = await checkServerHealth();
-      if (isHealthy) {
+      if (isHealthy.status) {
         socket.emit('join', username);
       } else {
         console.error('Server is not healthy');

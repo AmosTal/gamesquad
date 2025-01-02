@@ -12,10 +12,30 @@ const {
 
 const app = express();
 
+// Detailed logging function
+const logRequest = (req, res, next) => {
+  console.log('-------------------------------------------');
+  console.log(`[${new Date().toISOString()}] Request Received:`);
+  console.log(`Method: ${req.method}`);
+  console.log(`Path: ${req.path}`);
+  console.log(`Origin: ${req.get('origin') || 'No Origin'}`);
+  console.log(`Referrer: ${req.get('referrer') || 'No Referrer'}`);
+  console.log(`Host: ${req.get('host') || 'No Host'}`);
+  console.log(`Headers: ${JSON.stringify(req.headers, null, 2)}`);
+  console.log(`Body: ${JSON.stringify(req.body || {}, null, 2)}`);
+  console.log('-------------------------------------------');
+  next();
+};
+
 // Dynamic port configuration
 const PORT = process.env.PORT || 8080;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://web-production-0f014.up.railway.app';
 const BACKEND_URL = process.env.BACKEND_URL || 'https://gamesquad-backend.up.railway.app';
+
+console.log('Server Configuration:');
+console.log(`PORT: ${PORT}`);
+console.log(`FRONTEND_URL: ${FRONTEND_URL}`);
+console.log(`BACKEND_URL: ${BACKEND_URL}`);
 
 // Comprehensive CORS configuration
 const corsOptions = {
@@ -29,10 +49,11 @@ const corsOptions = {
       'http://localhost:8080'
     ];
     
-    console.log('Incoming request origin:', origin);
+    console.log('CORS Check - Incoming Origin:', origin);
     
     // Always allow if no origin (like server-to-server requests)
     if (!origin) {
+      console.log('No origin - allowing request');
       return callback(null, true);
     }
 
@@ -43,6 +64,7 @@ const corsOptions = {
     );
 
     if (isAllowed) {
+      console.log('Origin allowed:', origin);
       callback(null, true);
     } else {
       console.warn('CORS blocked origin:', origin);
@@ -63,19 +85,10 @@ const corsOptions = {
   optionsSuccessStatus: 204
 };
 
-// Middleware to force HTTPS and add security headers
+// Global middleware for logging and CORS
+app.use(logRequest);
 app.use((req, res, next) => {
-  // Force HTTPS in production
-  if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
-    return res.redirect(`https://${req.headers.host}${req.url}`);
-  }
-
-  // Security headers
-  res.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  res.header('X-Content-Type-Options', 'nosniff');
-  res.header('X-Frame-Options', 'SAMEORIGIN');
-  
-  // CORS headers
+  // Explicitly set CORS headers
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,HEAD');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Origin');
@@ -83,6 +96,7 @@ app.use((req, res, next) => {
   
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS Preflight Request');
     return res.sendStatus(200);
   }
   
@@ -93,51 +107,101 @@ app.use((req, res, next) => {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // Enable preflight requests for all routes
 
-// Logging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} from ${req.get('origin') || 'Unknown Origin'}`);
-  next();
-});
-
 app.use(express.json());
 
 // Serve static files from React build
 app.use(express.static(path.join(__dirname, 'build')));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+// Comprehensive error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled Error:', {
+    message: err.message,
+    stack: err.stack,
+    method: req.method,
+    path: req.path,
+    body: req.body
+  });
+  
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: err.message,
+    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
 
-// API routes with comprehensive error handling
+// Health check endpoint with detailed diagnostics
+app.get('/health', async (req, res) => {
+  try {
+    // Perform basic database connectivity check
+    const videoCount = await getVideoHistory().catch(err => {
+      console.error('Database health check failed:', err);
+      return null;
+    });
+
+    res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      diagnostics: {
+        database: videoCount !== null ? 'connected' : 'disconnected',
+        videoCount: videoCount ? videoCount.length : 0
+      }
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({
+      status: 'unhealthy',
+      error: error.message
+    });
+  }
+});
+
+// Detailed video API routes
 app.post('/api/videos', async (req, res) => {
   try {
+    console.log('Received video add request:', req.body);
     const { url, title, addedBy } = req.body;
+    
+    if (!url || !title) {
+      return res.status(400).json({ 
+        error: 'Missing required fields', 
+        details: 'url and title are required' 
+      });
+    }
+
     const video = await addVideoToHistory({ url, title, addedBy });
     
     if (video) {
+      console.log('Video added successfully:', video);
       io.emit('newVideoAdded', video);
       res.status(201).json(video);
     } else {
+      console.error('Failed to add video');
       res.status(500).json({ error: 'Failed to add video' });
     }
   } catch (error) {
     console.error('Video add error:', error);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
 app.get('/api/videos', async (req, res) => {
   try {
+    console.log('Fetching video history');
     const videos = await getVideoHistory();
+    console.log(`Fetched ${videos.length} videos`);
     res.json(videos);
   } catch (error) {
     console.error('Fetch videos error:', error);
-    res.status(500).json({ error: 'Failed to fetch videos', details: error.message });
+    res.status(500).json({ 
+      error: 'Failed to fetch videos', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
@@ -148,12 +212,17 @@ app.delete('/api/videos/:id', async (req, res) => {
     res.json({ success });
   } catch (error) {
     console.error('Delete video error:', error);
-    res.status(500).json({ error: 'Failed to delete video', details: error.message });
+    res.status(500).json({ 
+      error: 'Failed to delete video', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
 // Catch-all route to serve React app
 app.get('*', (req, res) => {
+  console.log('Catch-all route hit:', req.path);
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
@@ -171,7 +240,9 @@ const io = new Server(server, {
 });
 
 // Initialize database on server start
-initializeDatabase();
+initializeDatabase().catch(err => {
+  console.error('Database initialization failed:', err);
+});
 
 // Store connected users
 const connectedUsers = new Map();
