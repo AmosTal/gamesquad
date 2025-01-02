@@ -37,52 +37,40 @@ console.log(`PORT: ${PORT}`);
 console.log(`FRONTEND_URL: ${FRONTEND_URL}`);
 console.log(`BACKEND_URL: ${BACKEND_URL}`);
 
-// Comprehensive CORS configuration
+// CORS Configuration
 const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       'http://localhost:3000', 
       'https://web-production-b2c6.up.railway.app',
-      FRONTEND_URL,
+      'https://web-production-0f014.up.railway.app',
       'https://gamesquad-frontend.up.railway.app',
-      /\.railway\.app$/,
-      'http://localhost:8080'
+      /\.railway\.app$/
     ];
     
     console.log('CORS Check - Incoming Origin:', origin);
-    
-    // Always allow if no origin (like server-to-server requests)
-    if (!origin) {
-      console.log('No origin - allowing request');
-      return callback(null, true);
-    }
 
-    const isAllowed = allowedOrigins.some(allowed => 
-      typeof allowed === 'string' 
-        ? allowed === origin 
-        : allowed.test(origin)
-    );
-
-    if (isAllowed) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.some(allowed => 
+      typeof allowed === 'string' ? origin === allowed : allowed.test(origin)
+    )) {
       console.log('Origin allowed:', origin);
       callback(null, true);
     } else {
-      console.warn('CORS blocked origin:', origin);
-      callback(null, true); // Temporarily allow all origins
+      console.log('Origin NOT allowed:', origin);
+      callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS', 'HEAD', 'PUT'],
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS', 'HEAD', 'PUT', 'PATCH'],
   allowedHeaders: [
     'Content-Type', 
     'Authorization', 
     'Origin', 
     'X-Requested-With', 
-    'Accept',
-    'Access-Control-Allow-Origin'
+    'Accept'
   ],
   credentials: true,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 200
 };
 
 // Global middleware for logging and CORS
