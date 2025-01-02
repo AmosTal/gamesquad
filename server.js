@@ -18,7 +18,8 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000', 
       'https://web-production-0f014.up.railway.app',
-      /\.railway\.app$/
+      /\.railway\.app$/,
+      'http://localhost:8080'
     ];
     
     if (!origin || allowedOrigins.some(allowed => 
@@ -41,41 +42,58 @@ app.options('*', cors(corsOptions)); // Enable preflight requests for all routes
 
 app.use(express.json());
 
+// Serve static files from React build
+app.use(express.static(path.join(__dirname, 'build')));
+
 // API routes
 app.post('/api/videos', async (req, res) => {
-  const { url, title, addedBy } = req.body;
-  const video = await addVideoToHistory({ url, title, addedBy });
-  
-  if (video) {
-    io.emit('newVideoAdded', video);
-    res.status(201).json(video);
-  } else {
-    res.status(500).json({ error: 'Failed to add video' });
+  try {
+    const { url, title, addedBy } = req.body;
+    const video = await addVideoToHistory({ url, title, addedBy });
+    
+    if (video) {
+      io.emit('newVideoAdded', video);
+      res.status(201).json(video);
+    } else {
+      res.status(500).json({ error: 'Failed to add video' });
+    }
+  } catch (error) {
+    console.error('Video add error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 app.get('/api/videos', async (req, res) => {
-  const videos = await getVideoHistory();
-  res.json(videos);
+  try {
+    const videos = await getVideoHistory();
+    res.json(videos);
+  } catch (error) {
+    console.error('Fetch videos error:', error);
+    res.status(500).json({ error: 'Failed to fetch videos' });
+  }
 });
 
 app.delete('/api/videos/:id', async (req, res) => {
-  const { id } = req.params;
-  const success = await deleteVideoById(id);
-  res.json({ success });
+  try {
+    const { id } = req.params;
+    const success = await deleteVideoById(id);
+    res.json({ success });
+  } catch (error) {
+    console.error('Delete video error:', error);
+    res.status(500).json({ error: 'Failed to delete video' });
+  }
 });
 
-// Serve static files from the React build
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Serve React app for any unknown routes
+// Catch-all route to serve React app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: corsOptions
+  cors: corsOptions,
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 // Initialize database on server start
@@ -98,7 +116,9 @@ io.on('connection', (socket) => {
     socket.emit('serverConnected');
     
     // Broadcast updated friends list
-    io.emit('friendsUpdate', Array.from(connectedUsers.values()));
+    const onlineFriendsList = Array.from(connectedUsers.values());
+    console.log('Emitting friends update:', onlineFriendsList);
+    io.emit('friendsUpdate', onlineFriendsList);
   });
 
   socket.on('disconnect', () => {
@@ -106,7 +126,11 @@ io.on('connection', (socket) => {
     if (username) {
       console.log(`${username} disconnected`);
       connectedUsers.delete(socket.id);
-      io.emit('friendsUpdate', Array.from(connectedUsers.values()));
+      
+      // Broadcast updated friends list
+      const onlineFriendsList = Array.from(connectedUsers.values());
+      console.log('Emitting friends update after disconnect:', onlineFriendsList);
+      io.emit('friendsUpdate', onlineFriendsList);
     }
   });
 });
