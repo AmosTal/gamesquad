@@ -31,8 +31,7 @@ const axiosInstance = axios.create({
   baseURL: BACKEND_URL,
   timeout: 15000,
   headers: {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
+    'Content-Type': 'application/json'
   },
   withCredentials: false
 });
@@ -44,11 +43,7 @@ const DISCORD_VOICE_CHANNEL_LINK = 'discord://discord.com/channels/1091057132771
 const fetchVideos = async () => {
   try {
     console.log('Attempting to fetch videos from:', `${BACKEND_URL}/api/videos`);
-    const response = await axiosInstance.get('/api/videos', {
-      headers: {
-        'Origin': window.location.origin
-      }
-    });
+    const response = await axiosInstance.get('/api/videos');
     return response.data;
   } catch (error) {
     console.error('Error fetching videos:', {
@@ -157,11 +152,7 @@ const ServerStatus = ({ username }) => {
       forceNew: true,
       secure: true,
       rejectUnauthorized: false,
-      withCredentials: false,
-      extraHeaders: {
-        'Origin': window.location.origin,
-        'Access-Control-Allow-Origin': '*'
-      }
+      withCredentials: false
     };
 
     // Create socket with detailed logging

@@ -55,36 +55,15 @@ const corsOptions = {
     'Authorization', 
     'Origin', 
     'X-Requested-With', 
-    'Accept', 
-    'x-client-key', 
-    'x-client-token', 
-    'x-client-secret', 
-    'Access-Control-Allow-Origin'
+    'Accept'
   ],
   credentials: true,
   preflightContinue: false,
   optionsSuccessStatus: 204
 };
 
-// Global CORS and security middleware
-app.use((req, res, next) => {
-  // Allow any origin temporarily
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,HEAD');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  
-  next();
-});
-
-// Apply CORS middleware
+// Apply CORS middleware early
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Enable preflight requests for all routes
 
 // Logging middleware
 app.use((req, res, next) => {
@@ -146,7 +125,7 @@ const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Origin'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
   },
   pingTimeout: 60000,
