@@ -63,9 +63,19 @@ const corsOptions = {
   optionsSuccessStatus: 204
 };
 
-// Global middleware for CORS and headers
+// Middleware to force HTTPS and add security headers
 app.use((req, res, next) => {
-  // Explicitly set CORS headers
+  // Force HTTPS in production
+  if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect(`https://${req.headers.host}${req.url}`);
+  }
+
+  // Security headers
+  res.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'SAMEORIGIN');
+  
+  // CORS headers
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,HEAD');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Origin');
@@ -93,6 +103,15 @@ app.use(express.json());
 
 // Serve static files from React build
 app.use(express.static(path.join(__dirname, 'build')));
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
 
 // API routes with comprehensive error handling
 app.post('/api/videos', async (req, res) => {
@@ -160,15 +179,15 @@ const connectedUsers = new Map();
 io.on('connection', (socket) => {
   console.log('New socket connection:', socket.id);
   
+  // Immediately send server connected event
+  socket.emit('serverConnected');
+  
   // Handle user join
   socket.on('join', (username) => {
     console.log(`${username} joined with socket ID: ${socket.id}`);
     
     // Store user connection
     connectedUsers.set(socket.id, username);
-    
-    // Explicitly send server connected event
-    socket.emit('serverConnected');
     
     // Broadcast updated friends list
     const onlineFriendsList = Array.from(connectedUsers.values());
@@ -190,12 +209,23 @@ io.on('connection', (socket) => {
   });
 });
 
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Frontend URL: ${FRONTEND_URL}`);
   console.log(`Backend URL: ${BACKEND_URL}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 }).on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
     console.log('Port is already in use');
   }
+  console.error('Server startup error:', error);
 });

@@ -31,14 +31,22 @@ const axiosInstance = axios.create({
   baseURL: BACKEND_URL,
   timeout: 15000,
   headers: {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
+    'Content-Type': 'application/json'
   },
   withCredentials: false
 });
 
-// Deep link format for Discord voice channel
-const DISCORD_VOICE_CHANNEL_LINK = 'discord://discord.com/channels/1091057132771750030';
+// Health check function
+const checkServerHealth = async () => {
+  try {
+    const response = await axiosInstance.get('/health');
+    console.log('Server health check:', response.data);
+    return response.data.status === 'healthy';
+  } catch (error) {
+    console.error('Health check failed:', error);
+    return false;
+  }
+};
 
 // Modify video fetching function with enhanced error handling
 const fetchVideos = async () => {
@@ -75,6 +83,8 @@ const deleteVideo = async (videoId) => {
     throw error;
   }
 };
+
+const DISCORD_VOICE_CHANNEL_LINK = 'discord://discord.com/channels/1091057132771750030';
 
 const ServerStatus = ({ username }) => {
   const [serverStatus, setServerStatus] = useState('offline');
@@ -153,10 +163,7 @@ const ServerStatus = ({ username }) => {
       forceNew: true,
       secure: true,
       rejectUnauthorized: false,
-      withCredentials: false,
-      extraHeaders: {
-        'Access-Control-Allow-Origin': '*'
-      }
+      withCredentials: false
     };
 
     // Create socket with detailed logging
@@ -182,9 +189,15 @@ const ServerStatus = ({ username }) => {
     };
 
     // Log socket events
-    socket.on('connect', () => {
+    socket.on('connect', async () => {
       console.log('Socket connected successfully');
-      socket.emit('join', username);
+      const isHealthy = await checkServerHealth();
+      if (isHealthy) {
+        socket.emit('join', username);
+      } else {
+        console.error('Server is not healthy');
+        setConnectionError('Server is not healthy');
+      }
     });
 
     socket.on('serverConnected', () => {
