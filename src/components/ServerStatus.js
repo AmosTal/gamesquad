@@ -29,24 +29,33 @@ console.log('Backend URL:', BACKEND_URL);
 // Axios configuration for API calls
 const axiosInstance = axios.create({
   baseURL: BACKEND_URL,
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*'
-  }
+  },
+  withCredentials: false
 });
 
 // Deep link format for Discord voice channel
 const DISCORD_VOICE_CHANNEL_LINK = 'discord://discord.com/channels/1091057132771750030';
 
-// Modify video fetching function
+// Modify video fetching function with enhanced error handling
 const fetchVideos = async () => {
   try {
     console.log('Attempting to fetch videos from:', `${BACKEND_URL}/api/videos`);
-    const response = await axiosInstance.get('/api/videos');
+    const response = await axiosInstance.get('/api/videos', {
+      headers: {
+        'Origin': window.location.origin
+      }
+    });
     return response.data;
   } catch (error) {
-    console.error('Error fetching videos:', error.response ? error.response.data : error.message);
+    console.error('Error fetching videos:', {
+      message: error.message,
+      response: error.response ? error.response.data : 'No response',
+      status: error.response ? error.response.status : 'Unknown'
+    });
     throw error;
   }
 };
@@ -137,14 +146,14 @@ const ServerStatus = ({ username }) => {
     // Extensive logging for socket connection
     console.log('Attempting to connect to socket at:', BACKEND_URL);
 
-    // Socket connection configuration
+    // Socket connection configuration with extensive error handling
     const socketOptions = {
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
+      reconnectionAttempts: 15,
+      reconnectionDelay: 2000,
       randomizationFactor: 0.5,
-      timeout: 10000,
+      timeout: 15000,
       forceNew: true,
       secure: true,
       rejectUnauthorized: false,
@@ -168,6 +177,15 @@ const ServerStatus = ({ username }) => {
     // Log all standard socket events
     ['connect', 'connect_error', 'disconnect', 'reconnect', 'reconnect_error'].forEach(logSocketEvent);
     
+    // Enhanced error logging for socket connection
+    const logSocketError = (error) => {
+      console.error('Detailed Socket Connection Error:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+    };
+
     // Log socket events
     socket.on('connect', () => {
       console.log('Socket connected successfully');
@@ -194,6 +212,7 @@ const ServerStatus = ({ username }) => {
       console.error('Socket connection error:', error);
       setServerStatus('offline');
       setConnectionError(`Connection failed: ${error.message}`);
+      logSocketError(error);
     });
 
     socket.on('disconnect', (reason) => {
@@ -212,6 +231,7 @@ const ServerStatus = ({ username }) => {
       console.error('Socket reconnection error:', error);
       setServerStatus('offline');
       setConnectionError(`Reconnection failed: ${error.message}`);
+      logSocketError(error);
     });
 
     return () => {

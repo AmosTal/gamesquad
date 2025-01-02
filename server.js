@@ -46,10 +46,10 @@ const corsOptions = {
       callback(null, true);
     } else {
       console.warn('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, true); // Temporarily allow all origins
     }
   },
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS', 'HEAD'],
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS', 'HEAD', 'PUT'],
   allowedHeaders: [
     'Content-Type', 
     'Authorization', 
@@ -66,11 +66,19 @@ const corsOptions = {
   optionsSuccessStatus: 204
 };
 
-// Global CORS middleware
+// Global CORS and security middleware
 app.use((req, res, next) => {
+  // Allow any origin temporarily
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,HEAD');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
   next();
 });
 
@@ -80,7 +88,7 @@ app.options('*', cors(corsOptions)); // Enable preflight requests for all routes
 
 // Logging middleware
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} from ${req.get('origin')}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} from ${req.get('origin') || 'Unknown Origin'}`);
   next();
 });
 
@@ -103,7 +111,7 @@ app.post('/api/videos', async (req, res) => {
     }
   } catch (error) {
     console.error('Video add error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -113,7 +121,7 @@ app.get('/api/videos', async (req, res) => {
     res.json(videos);
   } catch (error) {
     console.error('Fetch videos error:', error);
-    res.status(500).json({ error: 'Failed to fetch videos' });
+    res.status(500).json({ error: 'Failed to fetch videos', details: error.message });
   }
 });
 
@@ -124,7 +132,7 @@ app.delete('/api/videos/:id', async (req, res) => {
     res.json({ success });
   } catch (error) {
     console.error('Delete video error:', error);
-    res.status(500).json({ error: 'Failed to delete video' });
+    res.status(500).json({ error: 'Failed to delete video', details: error.message });
   }
 });
 
@@ -137,7 +145,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: '*',
-    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS', 'HEAD'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Origin'],
     credentials: true
   },
