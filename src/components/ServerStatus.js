@@ -26,36 +26,47 @@ const BACKEND_URL =
 
 console.log('Backend URL:', BACKEND_URL);
 
+// Axios configuration for API calls
+const axiosInstance = axios.create({
+  baseURL: BACKEND_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*'
+  }
+});
+
 // Deep link format for Discord voice channel
 const DISCORD_VOICE_CHANNEL_LINK = 'discord://discord.com/channels/1091057132771750030';
 
+// Modify video fetching function
 const fetchVideos = async () => {
   try {
-    console.log('Fetching videos from:', `${BACKEND_URL}/api/videos`);
-    const { data } = await axios.get(`${BACKEND_URL}/api/videos`);
-    return data;
+    console.log('Attempting to fetch videos from:', `${BACKEND_URL}/api/videos`);
+    const response = await axiosInstance.get('/api/videos');
+    return response.data;
   } catch (error) {
-    console.error('Error fetching videos:', error);
+    console.error('Error fetching videos:', error.response ? error.response.data : error.message);
     throw error;
   }
 };
 
 const addVideo = async (videoData) => {
   try {
-    const { data } = await axios.post(`${BACKEND_URL}/api/videos`, videoData);
+    const { data } = await axiosInstance.post('/api/videos', videoData);
     return data;
   } catch (error) {
-    console.error('Error adding video:', error);
+    console.error('Error adding video:', error.response ? error.response.data : error.message);
     throw error;
   }
 };
 
 const deleteVideo = async (videoId) => {
   try {
-    const { data } = await axios.delete(`${BACKEND_URL}/api/videos/${videoId}`);
+    const { data } = await axiosInstance.delete(`/api/videos/${videoId}`);
     return data;
   } catch (error) {
-    console.error('Error deleting video:', error);
+    console.error('Error deleting video:', error.response ? error.response.data : error.message);
     throw error;
   }
 };

@@ -31,23 +31,48 @@ const corsOptions = {
     
     console.log('Incoming request origin:', origin);
     
-    if (!origin || allowedOrigins.some(allowed => 
+    // Always allow if no origin (like server-to-server requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const isAllowed = allowedOrigins.some(allowed => 
       typeof allowed === 'string' 
         ? allowed === origin 
         : allowed.test(origin)
-    )) {
+    );
+
+    if (isAllowed) {
       callback(null, true);
     } else {
       console.warn('CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'Origin', 
+    'X-Requested-With', 
+    'Accept', 
+    'x-client-key', 
+    'x-client-token', 
+    'x-client-secret', 
+    'Access-Control-Allow-Origin'
+  ],
   credentials: true,
   preflightContinue: false,
   optionsSuccessStatus: 204
 };
+
+// Global CORS middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  next();
+});
 
 // Apply CORS middleware
 app.use(cors(corsOptions));
@@ -110,7 +135,12 @@ app.get('*', (req, res) => {
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: corsOptions,
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Origin'],
+    credentials: true
+  },
   pingTimeout: 60000,
   pingInterval: 25000,
   transports: ['websocket', 'polling']
