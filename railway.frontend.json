@@ -5,8 +5,8 @@
     "dockerfilePath": "./Dockerfile"
   },
   "deploy": {
-    "startCommand": "npm run start:backend",
-    "healthcheckPath": "/health",
+    "startCommand": "npm run serve",
+    "healthcheckPath": "/",
     "healthcheckTimeout": 100,
     "restartPolicyType": "on_failure",
     "restartPolicyMaxRetries": 3
@@ -16,8 +16,7 @@
       "env": {
         "NODE_ENV": "production",
         "PORT": "8080",
-        "FRONTEND_URL": "https://gamesquad-frontend.up.railway.app",
-        "BACKEND_URL": "https://gamesquad-backend.up.railway.app"
+        "REACT_APP_BACKEND_URL": "https://gamesquad-backend.up.railway.app"
       }
     }
   }
