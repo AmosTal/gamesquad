@@ -8,9 +8,9 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 import Navbar from './components/Navbar';
 import ServerStatus from './components/ServerStatus';
-import VideoShare from './components/VideoShare';
 import DiscordIntegration from './components/DiscordIntegration';
 import UserAuth from './components/UserAuth';
+import VideoShare from './components/VideoShare';
 
 // Create a dark theme
 const darkTheme = createTheme({
@@ -67,7 +67,6 @@ function App() {
               <Routes>
                 <Route path="/" element={<ServerStatus username={username} />} />
                 <Route path="/discord" element={<DiscordIntegration username={username} />} />
-                <Route path="/videos" element={<VideoShare username={username} />} />
               </Routes>
             </Box>
           </Box>
